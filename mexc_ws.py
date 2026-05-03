@@ -6,7 +6,7 @@ from collections import defaultdict
 
 logger = logging.getLogger(__name__)
 
-BINANCE_WS_URL = "wss://fstream.binance.com/stream"
+BINANCE_WS_URL = "wss://fstream.binance.com/ws/btcusdt@kline_1m"
 
 SYMBOLS = [
     "btcusdt", "ethusdt", "solusdt", "bnbusdt", "xrpusdt",
@@ -34,11 +34,9 @@ class MexcWebSocket:
             self.streams.append(f"{sym}@kline_1h")
 
     async def run(self):
-        streams_param = "/".join(self.streams)
-        url = f"{BINANCE_WS_URL}?streams={streams_param}"
-        logger.info(f"🔌 Подключаемся к {len(self.streams)} стримам...")
+        logger.info(f"🔌 Подключаемся к тестовому стриму BTC...")
         async with websockets.connect(
-            url,
+            BINANCE_WS_URL,
             ping_interval=20,
             ping_timeout=10
         ) as ws:
@@ -46,21 +44,20 @@ class MexcWebSocket:
             async for message in ws:
                 self.message_count += 1
                 if self.message_count == 1:
-                    logger.info(f"📨 Первое сообщение: {message[:200]}")
-                if self.message_count % 50 == 0:
-                    logger.info(f"📨 Сообщений получено: {self.message_count}")
+                    logger.info(f"📨 Первое сообщение получено! Данные идут.")
+                if self.message_count % 10 == 0:
+                    logger.info(f"📨 Сообщений: {self.message_count}")
                 await self._handle_message(message)
 
     async def _handle_message(self, raw_message: str):
         try:
             data = json.loads(raw_message)
-            kline_data = data.get("data", {})
-            if kline_data.get("e") != "kline":
+            if data.get("e") != "kline":
                 return
-            k = kline_data.get("k", {})
+            k = data.get("k", {})
             symbol_raw = k.get("s", "").lower()
             interval = k.get("i", "")
-            interval_map = {"15m": "Min15", "1h": "Hour1"}
+            interval_map = {"15m": "Min15", "1h": "Hour1", "1m": "Min15"}
             interval_key = interval_map.get(interval)
             if not interval_key:
                 return
@@ -81,7 +78,8 @@ class MexcWebSocket:
                 candles.append(candle)
                 if len(candles) > self.MAX_CANDLES:
                     candles.pop(0)
-            if len(candles) >= 30:
+            if len(candles) >= 2:
+                logger.info(f"📊 {symbol}: {len(candles)} свечей")
                 await self.scanner.analyze(symbol, interval_key, candles.copy())
         except Exception as e:
-            logger.error(f"Ошибка обработки сообщения: {e}")
+            logger.error(f"Ошибка: {e}")

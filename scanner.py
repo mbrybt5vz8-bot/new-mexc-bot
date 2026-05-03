@@ -58,31 +58,34 @@ class Scanner:
 
         if interval != "Min15":
             return
+
         if "Hour1" not in self.data[symbol]:
+            logger.info(f"⏳ {symbol}: ждём данные 1ч")
             return
 
         candles_15m = self.data[symbol]["Min15"]
         candles_1h = self.data[symbol]["Hour1"]
 
         if len(candles_15m) < 30 or len(candles_1h) < 30:
+            logger.info(f"⏳ {symbol}: мало свечей 15м={len(candles_15m)} 1ч={len(candles_1h)}")
             return
 
-        # Антиспам: не чаще 1 сигнала на пару каждые 4 часа
         last = self.last_signal.get(symbol, 0)
         current_time = candles_15m[-1]["time"]
         if current_time - last < 1 * 60 * 60 * 1000:
             return
 
-        # Не отправлять если сканер выключен
         if not self.telegram.scanner_running:
+            logger.info(f"🔴 Сканер выключен")
             return
 
         signal = self._calculate_signal(symbol, candles_15m, candles_1h)
+        logger.info(f"🔍 {symbol}: сигнал={signal['direction'] if signal else 'нет'} сила={signal['strength'] if signal else 0}")
 
         if signal and signal["strength"] >= config.MIN_SIGNAL_STRENGTH:
             self.last_signal[symbol] = current_time
             await self.telegram.send_signal(signal)
-            logger.info(f"📡 Сигнал: {symbol} {signal['direction']} (сила: {signal['strength']})")
+            logger.info(f"📡 Сигнал отправлен: {symbol} {signal['direction']} (сила: {signal['strength']})")
 
     def _calculate_signal(self, symbol: str, c15: list, c1h: list):
         closes_15 = [c["close"] for c in c15]
@@ -104,7 +107,6 @@ class Scanner:
         dist_to_support = (current_price - support) / current_price * 100
         dist_to_resistance = (resistance - current_price) / current_price * 100
 
-        # ЛОНГ
         long_score = 0
         long_reasons = []
 
@@ -127,7 +129,6 @@ class Scanner:
             long_score += 1
             long_reasons.append("⚡ EMA15 бычье выравнивание")
 
-        # ШОРТ
         short_score = 0
         short_reasons = []
 
@@ -150,7 +151,6 @@ class Scanner:
             short_score += 1
             short_reasons.append("⚡ EMA15 медвежье выравнивание")
 
-        # Определяем лучший сигнал
         if long_score >= short_score and long_score >= config.MIN_SIGNAL_STRENGTH:
             direction, score, reasons = "LONG", long_score, long_reasons
         elif short_score > long_score and short_score >= config.MIN_SIGNAL_STRENGTH:

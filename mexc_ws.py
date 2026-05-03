@@ -20,7 +20,8 @@ class MexcWebSocket:
         async with websockets.connect(
             MEXC_WS_URL,
             ping_interval=20,
-            ping_timeout=10
+            ping_timeout=10,
+            extra_headers={"User-Agent": "Mozilla/5.0"}
         ) as ws:
             logger.info("✅ WebSocket подключён к MEXC")
             await self._subscribe(ws)
@@ -68,8 +69,7 @@ class MexcWebSocket:
                 "high": float(kline_data.get("h", 0)),
                 "low": float(kline_data.get("l", 0)),
                 "close": float(kline_data.get("c", 0)),
-                "volume": float(kline_data.get("v", 0)),
-                "closed": kline_data.get("e", False)
+                "volume": float(kline_data.get("q", 0)),
             }
 
             candles = self.candles[symbol][interval]
@@ -77,12 +77,12 @@ class MexcWebSocket:
             if candles and candles[-1]["time"] == candle["time"]:
                 candles[-1] = candle
             else:
+                if candles and len(candles) >= 30:
+                    await self.scanner.analyze(symbol, interval, candles.copy())
+
                 candles.append(candle)
                 if len(candles) > self.MAX_CANDLES:
                     candles.pop(0)
-
-            if candle["closed"] and len(candles) >= 30:
-                await self.scanner.analyze(symbol, interval, candles.copy())
 
         except Exception as e:
             logger.error(f"Ошибка обработки сообщения: {e}")

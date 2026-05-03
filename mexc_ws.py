@@ -74,10 +74,7 @@ class MexcWebSocket:
                 candles.append(candle)
                 if len(candles) > self.MAX_CANDLES:
                     candles.pop(0)
-
-            # ТЕСТ: анализируем без ожидания закрытия свечи
             if len(candles) >= 30:
                 await self.scanner.analyze(symbol, interval_key, candles.copy())
-
         except Exception as e:
             logger.error(f"Ошибка обработки сообщения: {e}")

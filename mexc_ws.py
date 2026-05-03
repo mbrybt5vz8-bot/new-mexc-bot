@@ -28,6 +28,7 @@ class MexcWebSocket:
         self.candles = defaultdict(lambda: defaultdict(list))
         self.MAX_CANDLES = 60
         self.streams = []
+        self.message_count = 0
         for sym in SYMBOLS:
             self.streams.append(f"{sym}@kline_15m")
             self.streams.append(f"{sym}@kline_1h")
@@ -42,6 +43,9 @@ class MexcWebSocket:
         ) as ws:
             logger.info("✅ WebSocket подключён к Binance Futures")
             async for message in ws:
+                self.message_count += 1
+                if self.message_count % 100 == 0:
+                    logger.info(f"📨 Получено сообщений: {self.message_count}")
                 await self._handle_message(message)
 
     async def _handle_message(self, raw_message: str):

@@ -36,6 +36,7 @@ class MexcWebSocket:
     async def run(self):
         streams_param = "/".join(self.streams)
         url = f"{BINANCE_WS_URL}?streams={streams_param}"
+        logger.info(f"🔌 Подключаемся к {len(self.streams)} стримам...")
         async with websockets.connect(
             url,
             ping_interval=20,
@@ -44,8 +45,10 @@ class MexcWebSocket:
             logger.info("✅ WebSocket подключён к Binance Futures")
             async for message in ws:
                 self.message_count += 1
-                if self.message_count % 100 == 0:
-                    logger.info(f"📨 Получено сообщений: {self.message_count}")
+                if self.message_count == 1:
+                    logger.info(f"📨 Первое сообщение: {message[:200]}")
+                if self.message_count % 50 == 0:
+                    logger.info(f"📨 Сообщений получено: {self.message_count}")
                 await self._handle_message(message)
 
     async def _handle_message(self, raw_message: str):

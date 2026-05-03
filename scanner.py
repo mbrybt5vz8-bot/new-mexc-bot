@@ -70,7 +70,7 @@ class Scanner:
         # Антиспам: не чаще 1 сигнала на пару каждые 4 часа
         last = self.last_signal.get(symbol, 0)
         current_time = candles_15m[-1]["time"]
-        if current_time - last < 4 * 60 * 60 * 1000:
+        if current_time - last < 1 * 60 * 60 * 1000:
             return
 
         # Не отправлять если сканер выключен
